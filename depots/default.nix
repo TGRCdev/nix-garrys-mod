@@ -15,7 +15,7 @@
       "manifestId"
       "outputHash"
     ];
-  in pkgs.stdenvNoCC.mkDerivation {
+  in pkgs.stdenvNoCC.mkDerivation ({
     inherit name outputHash;
     outputHashMode = "recursive";
     phases = [ "buildPhase" ];
@@ -27,8 +27,10 @@
         -dir $out \
         -app ${builtins.toString appId} \
         -depot ${builtins.toString depotId} \
-        -manifest ${builtins.toString manifestId}
+        -manifest ${builtins.toString manifestId} \
+        -os linux \
+        -osarch ${if pkgs.stdenvNoCC.is32bit then "32" else "64"}
       rm -rf $out/.DepotDownloader
     '';
-  } // rest;
+  } // rest);
 }
