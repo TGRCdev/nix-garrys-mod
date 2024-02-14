@@ -1,4 +1,4 @@
-{ pkgs, lib, depotdownloader }:
+{ pkgs, pkgsi686Linux, lib, depotdownloader }:
 {
   fetchDepot = {
     name,
@@ -15,7 +15,7 @@
       "manifestId"
       "outputHash"
     ];
-  in pkgs.stdenvNoCC.mkDerivation ({
+  in pkgsi686Linux.stdenvNoCC.mkDerivation ({
     inherit name outputHash;
     outputHashMode = "recursive";
     phases = [ "buildPhase" ];
@@ -29,7 +29,7 @@
         -depot ${builtins.toString depotId} \
         -manifest ${builtins.toString manifestId} \
         -os linux \
-        -osarch ${if pkgs.stdenvNoCC.is32bit then "32" else "64"}
+        -osarch 32
       rm -rf $out/.DepotDownloader
     '';
   } // rest);

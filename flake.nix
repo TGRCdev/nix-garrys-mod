@@ -25,8 +25,8 @@
         manifestId = 7918776424147734184;
         outputHash = "sha256-viuPi6ou5EJRqkFW9jpFm8KZNz9ROjivWx1XBQjRJZc=";
       };
-      dedicated-server-linux-unpatched = fetchDepot {
-        name = "dedicated-server-linux-unpatched";
+      dedicated-server-linux-src = fetchDepot {
+        name = "dedicated-server-linux-src";
         appId = 4020;
         depotId = 4023;
         manifestId = 3728493952843195777;
@@ -40,7 +40,7 @@
         ];
       in pkgsi686Linux.stdenv.mkDerivation {
         name = "dedicated-server-linux";
-        src = dedicated-server-linux-unpatched;
+        src = dedicated-server-linux-src;
         buildInputs = runtimeLibs;
         nativeBuildInputs = [ pkgs.makeWrapper ];
         buildPhase = ''
