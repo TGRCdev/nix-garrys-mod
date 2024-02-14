@@ -20,7 +20,11 @@
         outputHash = "sha256-viuPi6ou5EJRqkFW9jpFm8KZNz9ROjivWx1XBQjRJZc=";
       };
       dedicated-server-linux = let
-        gcclibs = pkgs.pkgsi686Linux.gcc-unwrapped.lib;
+        runtimeLibs = with pkgs.pkgsi686Linux; [
+          gcc-unwrapped.lib
+          ncurses5
+          gperftools
+        ];
       in pkgs.pkgsi686Linux.stdenv.mkDerivation {
         name = "dedicated-server-linux";
         src = fetchDepot {
@@ -30,7 +34,7 @@
           manifestId = 3728493952843195777;
           outputHash = "sha256-cwyJzU5+xA8bcsuOBXNbR/bNXAQNVXxEfv6DLviHq6I=";
         };
-        propagatedBuildInputs = [ gcclibs ];
+        buildInputs = runtimeLibs;
         nativeBuildInputs = [ pkgs.makeWrapper ];
         installPhase = ''
           mkdir $out
@@ -40,7 +44,7 @@
           patchelf --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" $out/srcds_linux
         '';
         postFixup = ''
-          wrapProgram $out/srcds_run --set LD_LIBRARY_PATH "${pkgs.lib.makeLibraryPath [gcclibs]}"
+          wrapProgram $out/srcds_linux --set LD_LIBRARY_PATH "$out:$out/bin:${pkgs.lib.makeLibraryPath runtimeLibs}"
         '';
       };
       default = pkgs.symlinkJoin {
