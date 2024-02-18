@@ -7,12 +7,6 @@
     fetchRuntime = (pkgs.callPackage ./runtime.nix {}).fetchRuntime;
   in {
     packages.${system} = rec {
-      steam-runtime-heavy = fetchRuntime {
-        runtime = "heavy";
-        snapshot = "0.20231127.68518";
-        filename = "steam-runtime-heavy.tar.xz";
-        hash = "sha256-HvM95MBXmZ1WNhPiRi3Sd7iYTPGa5hNdlKcmSg8Wj9U=";
-      };
       steam-sdk-redist = fetchDepot {
         name = "steam-sdk-redist";
         appId = 4020;
@@ -40,37 +34,27 @@
           manifestId = 3728493952843195777;
           outputHash = "sha256-cwyJzU5+xA8bcsuOBXNbR/bNXAQNVXxEfv6DLviHq6I=";
         };
-        dedicated-server-linux = let
-          runtimeLibs = with pkgs.pkgsi686Linux; [
-            gcc-unwrapped.lib
-            ncurses5
-            gperftools
-          ];
-        in pkgsi686Linux.stdenv.mkDerivation {
-          name = "dedicated-server-linux";
-          src = dedicated-server-linux-src;
-          buildInputs = runtimeLibs;
+        runWrapper = let
+          steam-run = (pkgs.steam-run);
+        in pkgs.stdenvNoCC.mkDerivation {
+          name = "garrys-mod-server-wrapper";
+          src = pkgs.symlinkJoin {
+            name = "garrys-mod-server";
+            paths = [
+              steam-sdk-redist
+              dedicated-server-content
+              dedicated-server-linux-src
+            ];
+          };
           nativeBuildInputs = [ pkgs.makeWrapper ];
+          buildInputs = [ steam-run ];
           buildPhase = ''
-            mkdir $out
-            ln -s $src/* $out/
-            rm $out/srcds_linux
-            cp $src/srcds_linux $out/srcds_linux
+            mkdir -p $out/bin
+            echo "#!${pkgs.bash}/bin/bash
+            ${steam-run}/bin/steam-run $src/srcds_run \"\$@\"
+            " >> $out/bin/run-gmod-server
+            chmod +x $out/bin/run-gmod-server
           '';
-          preFixup = ''
-            patchelf --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" $out/srcds_linux
-          '';
-          postFixup = ''
-            wrapProgram $out/srcds_linux --set LD_LIBRARY_PATH "$out:$out/bin:${pkgs.lib.makeLibraryPath runtimeLibs}"
-          '';
-        };
-        default = pkgs.symlinkJoin {
-          name = "garrys-mod-server";
-          paths = [
-            steam-sdk-redist
-            dedicated-server-content
-            dedicated-server-linux
-          ];
         };
       };
     };
