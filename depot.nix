@@ -22,15 +22,16 @@
     nativeBuildInputs = [ depotdownloader ];
     buildPhase = ''
       mkdir $out -p
+      mkdir ./depot
       export HOME=$PWD
       ${depotdownloader}/bin/DepotDownloader \
-        -dir $out \
+        -dir ./depot \
         -app ${builtins.toString appId} \
         -depot ${builtins.toString depotId} \
         -manifest ${builtins.toString manifestId} \
         -os linux \
         -osarch 32
-      rm -rf $out/.DepotDownloader
+      cp -r ./depot/* $out/
     '';
   } // rest);
 }
