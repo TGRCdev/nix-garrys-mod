@@ -96,10 +96,7 @@ for cfg in ${dedicated-server}/garrysmod/cfg/*; do
     fi
 done
 
-if [ -z $FAKEDIR ]; then
-    CLEANUP=1
-    FAKEDIR=$(mktemp -d)
-fi
+FAKEDIR=$(mktemp -d)
 echo "Fake directory at $FAKEDIR. We will trick srcds into believing this is the write-able Garry's Mod dedicated server folder."
 
 mkdir $FAKEDIR/garrysmod
