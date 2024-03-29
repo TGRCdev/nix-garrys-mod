@@ -8,6 +8,7 @@
     stdenv = pkgs.stdenvNoCC;
   in {
     packages.${system} = rec {
+      # steamclient.so
       steam-sdk-redist = stdenv.mkDerivation {
         name = "steam-sdk-redist";
         src = fetchDepot {
@@ -25,6 +26,7 @@
       };
 
       garrys-mod = rec {
+        # Actual game content, does not need fixup
         dedicated-server-content = fetchDepot {
           name = "dedicated-server-content";
           appId = 4020;
@@ -32,6 +34,8 @@
           manifestId = 5179858603377479094;
           outputHash = "sha256-rUiQ+xwaw+meBTVFwBFY8ZjOCOOvvdI0vjX9p2ZgsSs=";
         };
+
+        # Dedicated server binaries and scripts for Linux, including srcds_run and srcds_linux
         dedicated-server-linux-bins = stdenv.mkDerivation {
           name = "garrys-mod-dedicated-server-linux-bins";
           src = fetchDepot {
@@ -71,6 +75,7 @@
           ];
         };
 
+        # Runnable server
         dedicated-server = pkgs.symlinkJoin {
           name = "garrys-mod-dedicated-server";
           paths = [
@@ -79,6 +84,10 @@
             dedicated-server-linux-bins
           ];
         };
+
+        # Wrapper for specifying options for Nix-supported usage
+        run-wrapper = pkgs.writeShellScriptBin "run-gmod-server"
+          (import ./run-wrapper.nix { inherit pkgs dedicated-server; });
       };
 
       default = garrys-mod.dedicated-server;
