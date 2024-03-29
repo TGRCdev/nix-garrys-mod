@@ -4,17 +4,24 @@
   outputs = { self, nixpkgs }: let
     system = "x86_64-linux";
     pkgs = import nixpkgs { inherit system; };
-    pkgsi686Linux = pkgs.pkgsi686Linux;
     fetchDepot = (pkgs.callPackage ./depot.nix {}).fetchDepot;
     stdenv = pkgs.stdenvNoCC;
   in {
     packages.${system} = rec {
-      steam-sdk-redist = fetchDepot {
+      steam-sdk-redist = stdenv.mkDerivation {
         name = "steam-sdk-redist";
-        appId = 4020;
-        depotId = 1006;
-        manifestId = 4884950798805348056;
-        outputHash = "sha256-IUoZ0JkpisMY4Pzqg3Bi99MhU6IRbBenQJspzq0PRLE=";
+        src = fetchDepot {
+          name = "steam-sdk-redist-src";
+          appId = 4020;
+          depotId = 1006;
+          manifestId = 4884950798805348056;
+          outputHash = "sha256-IUoZ0JkpisMY4Pzqg3Bi99MhU6IRbBenQJspzq0PRLE=";
+        };
+
+        buildPhase = ''
+          mkdir $out
+          cp -r $src/* $out
+        '';
       };
 
       garrys-mod = rec {
@@ -25,41 +32,52 @@
           manifestId = 5179858603377479094;
           outputHash = "sha256-rUiQ+xwaw+meBTVFwBFY8ZjOCOOvvdI0vjX9p2ZgsSs=";
         };
-        dedicated-server-linux-src = fetchDepot {
-          name = "garrys-mod-dedicated-server-linux-src";
-          appId = 4020;
-          depotId = 4023;
-          manifestId = 1978825540093010308;
-          outputHash = "sha256-QWqoAo+niwhu1Ksju/57bRWfMGaAWhphzMUQRoLzmls=";
-        };
-        dedicated-server = stdenv.mkDerivation {
-          name = "garrys-mod-dedicated-server";
-          srcs = [
-            steam-sdk-redist
-            dedicated-server-content
-            dedicated-server-linux-src
+        dedicated-server-linux-bins = stdenv.mkDerivation {
+          name = "garrys-mod-dedicated-server-linux-bins";
+          src = fetchDepot {
+            name = "garrys-mod-dedicated-server-linux-bins-unpatched";
+            appId = 4020;
+            depotId = 4023;
+            manifestId = 1978825540093010308;
+            outputHash = "sha256-QWqoAo+niwhu1Ksju/57bRWfMGaAWhphzMUQRoLzmls=";
+          };
+
+          buildInputs = [
+            pkgs.steamPackages.steam-runtime
           ];
-          unpackPhase = "true";
+          nativeBuildInputs = [
+            pkgs.pkgsi686Linux.autoPatchelfHook
+          ];
 
           buildPhase = ''
-            mkdir $out
-            # Link dedicated server content
-            ln -s ${dedicated-server-content}/* $out
-            rm $out/bin
-            mkdir $out/bin
-            ln -s ${dedicated-server-content}/bin/* $out/bin
-            rm $out/garrysmod
-            mkdir $out/garrysmod
-            ln -s ${dedicated-server-content}/garrysmod/* $out/garrysmod
+            cp -r $src $out
 
-            # Copy steam redist
-            cp -r ${steam-sdk-redist}/* $out/
-            
-            # Copy dedicated server linux binaries
-            cp -r ${dedicated-server-linux-src}/* $out/
-            
-            echo "4000" > $out/steam_appid.txt
+            # This one file has costed me a month and a half of debugging
+            chmod +w $out
+            echo 4000 > $out/steam_appid.txt
           '';
+
+          preFixupPhases = [ "autoPatchelfPathsPhase" ];
+          # Find dependencies from the runtime and link them
+          autoPatchelfPathsPhase = ''
+            addAutoPatchelfSearchPath ${pkgs.steamPackages.steam-runtime}/usr/lib/i386-linux-gnu/
+            addAutoPatchelfSearchPath ${pkgs.steamPackages.steam-runtime}/lib/i386-linux-gnu/
+            addAutoPatchelfSearchPath $out/bin
+          '';
+          # AFAIK these aren't needed for the headless server
+          autoPatchelfIgnoreMissingDeps = [
+            "libtier0.so"
+            "libvstdlib.so"
+          ];
+        };
+
+        dedicated-server = pkgs.symlinkJoin {
+          name = "garrys-mod-dedicated-server";
+          paths = [
+            steam-sdk-redist
+            dedicated-server-content
+            dedicated-server-linux-bins
+          ];
         };
       };
 
