@@ -6,23 +6,15 @@
     pkgs = import nixpkgs { inherit system; };
     pkgsi686Linux = pkgs.pkgsi686Linux;
     fetchDepot = (pkgs.callPackage ./depot.nix {}).fetchDepot;
-    fetchRuntime = (pkgs.callPackage ./runtime.nix {}).fetchRuntime;
     stdenv = pkgs.stdenvNoCC;
   in {
     packages.${system} = rec {
-      steam-sdk-redist = stdenv.mkDerivation {
+      steam-sdk-redist = fetchDepot {
         name = "steam-sdk-redist";
-        src = fetchDepot {
-          name = "steam-sdk-redist-src";
-          appId = 4020;
-          depotId = 1006;
-          manifestId = 4884950798805348056;
-          outputHash = "sha256-IUoZ0JkpisMY4Pzqg3Bi99MhU6IRbBenQJspzq0PRLE=";
-        };
-        buildPhase = ''
-          mkdir $out
-          cp -r $src/* $out
-        '';
+        appId = 4020;
+        depotId = 1006;
+        manifestId = 4884950798805348056;
+        outputHash = "sha256-IUoZ0JkpisMY4Pzqg3Bi99MhU6IRbBenQJspzq0PRLE=";
       };
 
       garrys-mod = rec {
@@ -33,45 +25,41 @@
           manifestId = 5179858603377479094;
           outputHash = "sha256-rUiQ+xwaw+meBTVFwBFY8ZjOCOOvvdI0vjX9p2ZgsSs=";
         };
-        dedicated-server-linux = let 
-          runtime = pkgs.steamPackages.steam-runtime;
-        in stdenv.mkDerivation {
-          name = "garrys-mod-dedicated-server-linux";
-          src = fetchDepot {
-            name = "garrys-mod-dedicated-server-linux-src";
-            appId = 4020;
-            depotId = 4023;
-            manifestId = 1978825540093010308;
-            outputHash = "sha256-QWqoAo+niwhu1Ksju/57bRWfMGaAWhphzMUQRoLzmls=";
-          };
-          buildInputs = [ runtime ];
-          nativeBuildInputs = [
-            pkgsi686Linux.autoPatchelfHook
-          ];
-          autoPatchelfIgnoreMissingDeps = [
-            "libtier0.so"
-            "libvstdlib.so"
-          ];
-          buildPhase = ''
-            addAutoPatchelfSearchPath ${runtime}/usr/lib/i386-linux-gnu/
-            addAutoPatchelfSearchPath ${runtime}/lib/i386-linux-gnu/
-            
-            mkdir $out
-            cp -r $src/* $out
-
-            chmod -R +w $out
-
-            addAutoPatchelfSearchPath $out/bin
-          '';
+        dedicated-server-linux-src = fetchDepot {
+          name = "garrys-mod-dedicated-server-linux-src";
+          appId = 4020;
+          depotId = 4023;
+          manifestId = 1978825540093010308;
+          outputHash = "sha256-QWqoAo+niwhu1Ksju/57bRWfMGaAWhphzMUQRoLzmls=";
         };
-        dedicated-server = pkgs.symlinkJoin {
+        dedicated-server = stdenv.mkDerivation {
           name = "garrys-mod-dedicated-server";
-          paths = [
+          srcs = [
             steam-sdk-redist
             dedicated-server-content
-            dedicated-server-linux
+            dedicated-server-linux-src
           ];
-          meta.mainProgram = "../srcds_run";
+          unpackPhase = "true";
+
+          buildPhase = ''
+            mkdir $out
+            # Link dedicated server content
+            ln -s ${dedicated-server-content}/* $out
+            rm $out/bin
+            mkdir $out/bin
+            ln -s ${dedicated-server-content}/bin/* $out/bin
+            rm $out/garrysmod
+            mkdir $out/garrysmod
+            ln -s ${dedicated-server-content}/garrysmod/* $out/garrysmod
+
+            # Copy steam redist
+            cp -r ${steam-sdk-redist}/* $out/
+            
+            # Copy dedicated server linux binaries
+            cp -r ${dedicated-server-linux-src}/* $out/
+            
+            echo "4000" > $out/steam_appid.txt
+          '';
         };
       };
 
