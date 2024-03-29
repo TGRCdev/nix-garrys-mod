@@ -106,7 +106,7 @@ mkdir $FAKEDIR/garrysmod
 
 echo "Linking data directory contents"
 ln -s $DATADIR/steam_cache $FAKEDIR/
-ln -s $DATADIR/addons $DATADIR/cache $FAKEDIR/garrysmod/
+ln -s $DATADIR/addons $DATADIR/cache $DATADIR/data $FAKEDIR/garrysmod/
 deep_link $DATADIR $FAKEDIR/garrysmod
 
 echo "Linking dedicated server contents"
