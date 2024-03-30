@@ -15,7 +15,7 @@ in {
   options.services.garrys-mod = {
     enable = mkEnableOption "Garry's Mod";
     dataDir = mkOption {
-      example = "/var/lib/garrys-mod-awesome/";
+      example = "/var/lib/gmstranded/";
       default = "/var/lib/garrys-mod/";
       type = types.str;
       description = ''
