@@ -40,6 +40,41 @@ in {
         The port to bind the Garry's Mod server to.
       '';
     };
+    gamemode = mkOption {
+      example = "terrortown";
+      default = "sandbox";
+      type = types.str;
+      description = ''
+        The gamemode to run on the server.
+        Make sure it's present in `{dataDir}/gamemodes` or downloaded by `workshopCollection`.
+      '';
+    };
+    map = mkOption {
+      example = "gm_flatgrass";
+      default = "gm_construct";
+      type = types.str;
+      description = ''
+        The map to run on the server.
+        Make sure it's present in `{dataDir}/maps` or downloaded by `workshopCollection`.
+      '';
+    };
+    workshopCollection = mkOption {
+      example = 3035416339;
+      default = null;
+      type = with types; nullOr int;
+      description = ''
+        A workshop collection that srcds_run will download before starting the server.
+      '';
+    };
+    extraPaths = mkOption {
+      default = [];
+      type = with types; listOf package;
+      description = ''
+        A list of derivations whose contents are linked to the fake srcds dir when the
+        server is started. Use this to add additional files (maps, gamemodes, scripts etc.)
+        to the server without needing a workshop collection.
+      '';
+    };
     extraArgs = mkOption {
       example = "+sv_lan 1";
       default = null;
@@ -67,9 +102,12 @@ in {
         Type = "simple";
         User = cfg.user;
         ExecStart = pkgs.writeShellScript "gmod-exec-start" ''
-          ${run-wrapper}/bin/run-gmod-server --data-dir "${cfg.dataDir}" -- \
+          ${run-wrapper}/bin/run-gmod-server --data-dir "${cfg.dataDir}" --extra-paths "${lib.strings.concatStringsSep " " cfg.extraPaths}" -- \
           -port ${builtins.toString cfg.port} \
           ${ if cfg.address != null then "-ip ${cfg.address} " else "" } \
+          +gamemode ${cfg.gamemode} \
+          +map ${builtins.trace cfg.map cfg.map} \
+          ${ if cfg.workshopCollection != null then "+host_workshop_collection ${builtins.toString cfg.workshopCollection}" else ""} \
           ${ if cfg.extraArgs != null then cfg.extraArgs else "" }
         '';
       };

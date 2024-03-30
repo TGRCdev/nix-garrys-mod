@@ -1,11 +1,13 @@
 { pkgs, dedicated-server }: ''
+
 DATADIR="$PWD"
+EXTRA_PATHS=""
 
 printUsage() {
 echo "Usage: $0 -d /path/to/garrysmod-server-data -- <srcds_run args>"
 echo "Flags:"
-printf "\t--help || -h : Print usage and flags"
-printf "\t--data-dir || -d : Path to a writable data folder of a Garry's Mod server"
+printf "\t--help || -h : Print usage and flags\n"
+printf "\t--data-dir || -d : Path to a writable data folder of a Garry's Mod server\n"
 exit 127
 }
 
@@ -42,7 +44,7 @@ try_if_not_exist_mkdir_and_link_contents() {
 deep_link() {
     oldmask=$(umask)
     umask 077
-    cp --no-preserve=mode,ownership -r -s "$1"/* "$2" 2>/dev/null
+    cp --no-preserve=mode,ownership --no-clobber -r -s "$1"/* "$2" 2>/dev/null
     umask $oldmask
 }
 
@@ -55,6 +57,11 @@ case $1 in
     -d | --data-dir)
         DATADIR=$(realpath "$2")
         shift 2
+    ;;
+    -e | --extra-paths)
+        EXTRA_PATHS=$2
+        shift 2
+        break;
     ;;
     --)
         shift
@@ -96,6 +103,10 @@ for cfg in ${dedicated-server}/garrysmod/cfg/*; do
         try_command cp --no-preserve=mode,ownership -Lv --no-clobber $cfg $DATADIR/cfg/
     fi
 done
+if ! [ -d "$DATADIR/settings" ]; then
+    echo "Copying settings directory"
+    cp -r --no-preserve=mode,ownership -L ${dedicated-server}/garrysmod/settings $DATADIR/
+fi
 
 FAKEDIR=$(mktemp -d)
 echo "Fake directory at $FAKEDIR. We will trick srcds into believing this is the write-able Garry's Mod dedicated server folder."
@@ -109,6 +120,19 @@ deep_link $DATADIR $FAKEDIR/garrysmod
 
 echo "Linking dedicated server contents"
 deep_link ${dedicated-server} $FAKEDIR/
+
+if ! [ -z "$EXTRA_PATHS" ]; then
+    echo "Linking additional paths contents"
+    for path in $EXTRA_PATHS; do
+        printf "\t$path\n"
+        if [[ -d "$path/data" ]]; then
+            # Anything under `garrysmod/data` is assumed to be persistent. Copy it to stateful (DO NOT OVERWRITE)
+            umask 077
+            cp --no-preserve=mode,ownership --no-clobber -r $path/data/* $DATADIR/data 2>/dev/null | true
+        fi
+        deep_link $path $FAKEDIR/garrysmod
+    done
+fi
 
 echo "Running srcds_run"
 
