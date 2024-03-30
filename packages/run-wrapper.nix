@@ -70,8 +70,8 @@ done
 
 umask 077
 
-echo "Data dir: $DATADIR"
-echo "Setting up data dir. We will make required directories and, if needed, copy default configuration files."
+echo "State dir: $DATADIR"
+echo "Setting up stateful directories. We will make required directories and, if needed, copy default configuration files."
 try_if_not_exist_mkdir_and_link_contents maps
 try_if_not_exist_mkdir_and_link_contents backgrounds
 try_if_not_exist_mkdir_and_link_contents gamemodes
@@ -84,6 +84,7 @@ try_if_not_exist_mkdir_and_link_contents particles
 try_if_not_exist_mkdir_and_link_contents sound
 try_if_not_exist_mkdir_and_link_contents resource/fonts
 try_if_not_exist_mkdir_and_link_contents resource/localization
+try_if_not_exist_mkdir_and_link_contents data
 try_if_not_exist_mkdir addons
 try_if_not_exist_mkdir cache
 try_if_not_exist_mkdir steam_cache

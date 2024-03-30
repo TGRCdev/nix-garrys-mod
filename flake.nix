@@ -4,7 +4,9 @@
     pkgs = import nixpkgs { inherit system; };
     fetchDepot = pkgs.callPackage ./packages/depots/fetch-depot.nix {};
     stdenv = pkgs.stdenvNoCC;
-  in {
+  in rec {
+    nixosModules.default = import ./nixos-module.nix packages.${system}.garrys-mod.run-wrapper;
+    
     packages.${system} = rec {
       inherit fetchDepot;
       steam-sdk-redist = pkgs.callPackage ./packages/depots/steam-sdk-redist.nix { inherit fetchDepot; };
