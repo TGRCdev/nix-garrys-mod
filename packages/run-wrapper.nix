@@ -1,6 +1,9 @@
 {
     writeShellScriptBin,
     dedicated-server,
+    bubblewrap,
+    useBubblewrap ? true,
+    bwrapNewSession ? true,
 }: writeShellScriptBin "run-gmod-server" ''
 DATADIR="$PWD"
 EXTRA_PATHS=""
@@ -107,7 +110,7 @@ mkdir $FAKEDIR/garrysmod
 touch $FAKEDIR/garrysmod/data $FAKEDIR/garrysmod/cache $FAKEDIR/steam_cache
 
 echo "Shadow-linking base server package contents"
-cp -rs --no-preserve=ownership,mode ${dedicated-server}/* $FAKEDIR/
+cp -rs --no-preserve=ownership,mode ${dedicated-server}/* $FAKEDIR/ 2>/dev/null
 
 if ! [ -z "$EXTRA_PATHS" ]; then
     echo "Clobbering with extra paths"
@@ -117,20 +120,40 @@ if ! [ -z "$EXTRA_PATHS" ]; then
             # Anything under `garrysmod/data` is assumed to be persistent. Copy it to stateful (DO NOT OVERWRITE)
             cp --no-preserve=mode,ownership --no-clobber -r $path/data/* $DATADIR/data 2>/dev/null
         else
-            cp -rfs --no-preserve=ownership,mode $path/* $FAKEDIR/
+            cp -rfs --no-preserve=ownership,mode $path/* $FAKEDIR/ 2>/dev/null
         fi
     done
 fi
 
 echo "Clobbering with stateful directory"
-cp -rfs --no-preserve=ownership,mode $DATADIR/* $FAKEDIR/garrysmod
+cp -rfs --no-preserve=ownership,mode $DATADIR/* $FAKEDIR/garrysmod 2>/dev/null
 
 echo "Linking 'steam_cache', 'cache' and 'data' back to the stateful directory"
 rm $FAKEDIR/garrysmod/cache $FAKEDIR/garrysmod/data $FAKEDIR/steam_cache
 ln -s $DATADIR/cache $DATADIR/data $FAKEDIR/garrysmod/
 ln -s $DATADIR/steam_cache $FAKEDIR/
 
-echo "Running srcds_run"
+echo "Running srcds_run ${if useBubblewrap then "with bwrap" else ""}";
 
-$FAKEDIR/srcds_run "$@"
+${ if useBubblewrap then ''
+    ${bubblewrap}/bin/bwrap ${if bwrapNewSession then "--new-session" else ""} \
+        --ro-bind /nix/store /nix/store \
+        --ro-bind /run/current-system/sw /run/current-system/sw \
+        --ro-bind /proc /proc \
+        --ro-bind /etc/ssl /etc/ssl \
+        --ro-bind /etc/static/ssl /etc/static/ssl \
+        --ro-bind /etc/resolv.conf /etc/resolv.conf \
+        --bind $FAKEDIR $FAKEDIR \
+        --ro-bind $DATADIR $DATADIR \
+        --dev-bind /dev/urandom /dev/urandom \
+        --bind $DATADIR/data $DATADIR/data \
+        --bind $DATADIR/cache $DATADIR/cache \
+        --bind $DATADIR/steam_cache $DATADIR/steam_cache \
+        $FAKEDIR/srcds_run "$@"
+'' else ''
+    $FAKEDIR/srcds_run "$@"
+''
+}
+
+
 ''
