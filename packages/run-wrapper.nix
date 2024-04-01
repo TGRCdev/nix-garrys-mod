@@ -43,10 +43,6 @@ try_if_not_exist_mkdir_and_link_contents() {
     fi
 }
 
-deep_link() {
-    cp --no-preserve=mode,ownership --no-clobber -r -s "$1"/* "$2" 2>/dev/null
-}
-
 while true; do
 case $1 in
     -h | --help)
@@ -76,63 +72,62 @@ done
 
 echo "State dir: $DATADIR"
 echo "Setting up stateful directories. We will make required directories and, if needed, copy default configuration files."
-try_if_not_exist_mkdir_and_link_contents maps
-try_if_not_exist_mkdir_and_link_contents backgrounds
-try_if_not_exist_mkdir_and_link_contents gamemodes
-try_if_not_exist_mkdir_and_link_contents materials
-try_if_not_exist_mkdir_and_link_contents lua
-try_if_not_exist_mkdir_and_link_contents scenes
-try_if_not_exist_mkdir_and_link_contents models
-try_if_not_exist_mkdir_and_link_contents scripts/vehicles
-try_if_not_exist_mkdir_and_link_contents particles
-try_if_not_exist_mkdir_and_link_contents sound
-try_if_not_exist_mkdir_and_link_contents resource/fonts
-try_if_not_exist_mkdir_and_link_contents resource/localization
-try_if_not_exist_mkdir_and_link_contents data
+try_if_not_exist_mkdir maps
+try_if_not_exist_mkdir backgrounds
+try_if_not_exist_mkdir gamemodes
+try_if_not_exist_mkdir materials
+try_if_not_exist_mkdir lua
+try_if_not_exist_mkdir scenes
+try_if_not_exist_mkdir models
+try_if_not_exist_mkdir scripts/vehicles
+try_if_not_exist_mkdir particles
+try_if_not_exist_mkdir sound
+try_if_not_exist_mkdir resource/fonts
+try_if_not_exist_mkdir resource/localization
 try_if_not_exist_mkdir addons
 try_if_not_exist_mkdir cache
 try_if_not_exist_mkdir steam_cache
 
 try_if_not_exist_mkdir cfg
 echo "Checking for missing configurations"
-for cfg in ${dedicated-server}/garrysmod/cfg/*; do
-    if [ ! -e "$DATADIR/cfg/$(basename $cfg)" ]; then
-        try_command cp --no-preserve=mode,ownership -Lv --no-clobber $cfg $DATADIR/cfg/
-    fi
-done
-if ! [ -d "$DATADIR/settings" ]; then
-    echo "Copying settings directory"
-    cp -r --no-preserve=mode,ownership -L ${dedicated-server}/garrysmod/settings $DATADIR/
-fi
+cp --no-preserve=mode,ownership -L --no-clobber $cfg $DATADIR/cfg/ 2>/dev/null
+
+try_if_not_exist_mkdir settings
+echo "Checking for missing settings"
+cp -rL --no-clobber --no-preserve=mode,ownership ${dedicated-server}/garrysmod/settings/* $DATADIR/settings 2>/dev/null
+
+try_if_not_exist_mkdir data
+echo "Checking for missing data files"
+cp -rL --no-clobber --no-preserve=mode,ownership ${dedicated-server}/garrysmod/data/* $DATADIR/data 2>/dev/null
 
 FAKEDIR=$(mktemp -d)
 echo "Fake directory at $FAKEDIR. We will trick srcds into believing this is the write-able Garry's Mod dedicated server folder."
 
 mkdir $FAKEDIR/garrysmod
-touch $FAKEDIR/garrysmod/data $FAKEDIR/garrysmod/cache
+touch $FAKEDIR/garrysmod/data $FAKEDIR/garrysmod/cache $FAKEDIR/steam_cache
 
-echo "Shadow-linking data directory contents"
-ln -s $DATADIR/steam_cache $FAKEDIR/
-deep_link $DATADIR $FAKEDIR/garrysmod
+echo "Shadow-linking base server package contents"
+cp -rs --no-preserve=ownership,mode ${dedicated-server}/* $FAKEDIR/
 
 if ! [ -z "$EXTRA_PATHS" ]; then
-    echo "Shadow-linking additional paths contents"
+    echo "Clobbering with extra paths"
     for path in $EXTRA_PATHS; do
         printf "\t$path\n"
         if [[ -d "$path/data" ]]; then
             # Anything under `garrysmod/data` is assumed to be persistent. Copy it to stateful (DO NOT OVERWRITE)
-            cp --no-preserve=mode,ownership --no-clobber -r $path/data/* $DATADIR/data 2>/dev/null | true
+            cp --no-preserve=mode,ownership --no-clobber -r $path/data/* $DATADIR/data 2>/dev/null
         fi
-        deep_link $path $FAKEDIR/garrysmod
+        cp -rs --no-preserve=ownership,mode $path/* $FAKEDIR/ 2>/dev/null
     done
 fi
 
-echo "Shadow-linking dedicated server contents"
-deep_link ${dedicated-server} $FAKEDIR/
+echo "Clobbering with stateful directory"
+cp -rs --no-preserve=ownership,mode $DATADIR/* $FAKEDIR/ 2>/dev/null
 
-echo "Linking 'cache' and 'data' back to the data directory"
-try_command rm $FAKEDIR/garrysmod/cache $FAKEDIR/garrysmod/data
+echo "Linking 'steam_cache', 'cache' and 'data' back to the stateful directory"
+rm $FAKEDIR/garrysmod/cache $FAKEDIR/garrysmod/data $FAKEDIR/steam_cache
 ln -s $DATADIR/cache $DATADIR/data $FAKEDIR/garrysmod/
+ln -s $DATADIR/steam_cache $FAKEDIR/steam_cache
 
 echo "Running srcds_run"
 

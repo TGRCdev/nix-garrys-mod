@@ -1,23 +1,20 @@
 {
+  pkgs,
   lib,
   stdenvNoCC,
-  fetchFromGitHub,
-  writeShellScript
   config,
-  callPackage,
+  ...
 }:
 with lib;
 let
-  gpkgs = callPackage ./default.nix;
-  run-wrapper = gpkgs.run-wrapper;
+  gpkgs = pkgs.callPackage ./default.nix {};
   cfg = config.services.garrys-mod;
   defaultUser = {
     name = "garrys-mod";
     group = "garrys-mod";
     isSystemUser = true;
-    home = "/var/lib/garrys-mod";
     createHome = true;
-    packages = [ run-wrapper ];
+    home = cfg.dataDir;
   };
 in {
   imports = [];
@@ -120,7 +117,10 @@ in {
   };
 
   config = mkIf cfg.enable {
-    systemd.services.garrys-mod = {
+    systemd.services.garrys-mod = let
+      serverPkg = gpkgs.dedicated-server.override { inherit (cfg) extraPaths; };
+      runWrapper = gpkgs.run-wrapper.override { dedicated-server = serverPkg; };
+    in {
       description = "Garry's Mod dedicated server";
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" ];
@@ -128,8 +128,8 @@ in {
       serviceConfig = {
         Type = "simple";
         User = cfg.user;
-        ExecStart = writeShellScript "gmod-exec-start" ''
-          ${run-wrapper}/bin/run-gmod-server --data-dir "${cfg.dataDir}" --extra-paths "${lib.strings.concatStringsSep " " cfg.extraPaths}" -- \
+        ExecStart = pkgs.writeShellScript "gmod-exec-start" ''
+          ${runWrapper}/bin/run-gmod-server --data-dir "${cfg.dataDir}" -- \
           -port ${builtins.toString cfg.port} \
           ${ if cfg.address != null then "-ip ${cfg.address} " else "" } \
           +gamemode ${cfg.gamemode} \

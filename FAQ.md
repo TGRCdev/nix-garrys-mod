@@ -1,45 +1,58 @@
 # Frequently Asked Questions
 
-## How do I set the hostname / password / GLST token / etc.
+## Can I add custom files to the server derivation?
 
-There are two options, depending on if the setting is a sensitive secret:
-1. Pass it through `services.garrys-mod.extraArgs`.
-
-This will ensure that the setting persists even if you reset the data directory. However, this will also expose the setting to the globally visible nix variable, so it should not be used for secrets.
+Yes! For the NixOS module, you can include additional derivations in `services.garrys-mod.extraPaths`, and they will be merged with the `dedicated-server` derivation using `pkgs.buildEnv`. Here is an example of what I use to run [my gamemode](https://github.com/TGRCDev/GMStranded.git).
 ```nix
-# configuration.nix
-{
-    services.garrys-mod.extraArgs = "+hostname 'My Epic Server'";
-}
+services.garrys-mod = {
+  enable = true;
+  gamemode = "gmstranded";
+  map = "gms_g4p_stargate_v11";
+  workshopCollection = 3035416339;
+  extraPaths = let
+    gmstranded = pkgs.fetchFromGitHub {
+        owner = "TGRCDev";
+        repo = "GMStranded";
+        rev = "4bc8f7cf88be1c6965282167f6151e754651777d";
+        hash = "sha256-6eRWMU75SpgZgYu6bzOSDP0cs879dPgNR8pWqpcGr4A=";
+    };
+  in [ # It's a little out of order, so I have to symlink a bit
+    (pkgs.runCommandLocal "gmstranded" { inherit gmstranded; } ''
+      mkdir -p $out/garrysmod
+      ln -s $gmstranded/data $gmstranded/gamemodes $gmstranded/particles $out/garrysmod
+    '')
+  ];
+};
 ```
 
-2. Set the console variable through the server's `autoexec.cfg` or `server.cfg`.
+For the plain `dedicated-server`/`dedicated-server-unpatched` packages, you can override them and pass `extraPaths`.
 
-This will be lost if the data directory is reset, but it is not globally visible, so it is the preferred method of passing your GLST token or setting your server's password.
-```bash
-# cfg/autoexec.cfg
-hostname "My Epic Server"
-sv_password "myfunnypassword"
-sv_setsteamaccount "GlstTokenGoesHere"
+```nix
+dedicated-server.override ({
+    extraPaths = [ ... ];
+})
 ```
 
-The default permissions for `autoexec.cfg` are group readable and writable. If you want to pass certain options more securely, you can make an additional file under `cfg` with more restrictive permissions and call it from `autoexec.cfg` like so:
-```bash
-# cfg/autoexec.cfg (permissions 770)
-hostname "My Epic Server"
-sv_password "myfunnypassword"
-exec glst.cfg
-```
-```bash
-# cfg/glst.cfg (permissions 500)
-sv_setsteamaccount "GlstTokenGoesHere"
+For the `run-wrapper`, override `dedicated-server`.
+```nix
+run-wrapper.override ({
+    dedicated-server = dedicated-server.override ({
+        extraPaths = [ ... ];
+    });
+})
 ```
 
 ## What happens if a file exists in both the data directory and the store files?
 
-During server startup, we create a fake writeable server folder in `/tmp` and symbolically link all the files and directories we need. These files are linked in this order, with the earliest entries getting the highest priority:
+During server startup, we create a fake writeable server folder in `/tmp` and symbolically link all the files and directories we need. We link from directories in this order, overlaying any files that collide with the previous step:
 ```
-Data Directory -> extraPaths Derivations -> Store Derivation
+  Base Server Derivation (+extraPaths derivs)
+         |
+         v
+--extra-paths Directories
+         |
+         v
+    Data Directory
 ```
 
-Thus, any file (not directories) that exists in the data directory will mask the same file within the Nix store's `garrysmod` directory.
+Thus, any file that exists in the data directory will mask the same file within the Nix store's `garrysmod` directory.
