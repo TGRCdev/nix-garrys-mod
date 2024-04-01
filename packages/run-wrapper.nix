@@ -116,18 +116,19 @@ if ! [ -z "$EXTRA_PATHS" ]; then
         if [[ -d "$path/data" ]]; then
             # Anything under `garrysmod/data` is assumed to be persistent. Copy it to stateful (DO NOT OVERWRITE)
             cp --no-preserve=mode,ownership --no-clobber -r $path/data/* $DATADIR/data 2>/dev/null
+        else
+            cp -rfs --no-preserve=ownership,mode $path/* $FAKEDIR/
         fi
-        cp -rs --no-preserve=ownership,mode $path/* $FAKEDIR/ 2>/dev/null
     done
 fi
 
 echo "Clobbering with stateful directory"
-cp -rs --no-preserve=ownership,mode $DATADIR/* $FAKEDIR/ 2>/dev/null
+cp -rfs --no-preserve=ownership,mode $DATADIR/* $FAKEDIR/garrysmod
 
 echo "Linking 'steam_cache', 'cache' and 'data' back to the stateful directory"
 rm $FAKEDIR/garrysmod/cache $FAKEDIR/garrysmod/data $FAKEDIR/steam_cache
 ln -s $DATADIR/cache $DATADIR/data $FAKEDIR/garrysmod/
-ln -s $DATADIR/steam_cache $FAKEDIR/steam_cache
+ln -s $DATADIR/steam_cache $FAKEDIR/
 
 echo "Running srcds_run"
 

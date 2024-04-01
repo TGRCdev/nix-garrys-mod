@@ -19,13 +19,15 @@ services.garrys-mod = {
   in [ # It's a little out of order, so I have to symlink a bit
     (pkgs.runCommandLocal "gmstranded" { inherit gmstranded; } ''
       mkdir -p $out/garrysmod
-      ln -s $gmstranded/data $gmstranded/gamemodes $gmstranded/particles $out/garrysmod
+      cp -Rs $gmstranded/data $gmstranded/gamemodes $gmstranded/particles $out/garrysmod
     '')
   ];
 };
 ```
 
-For the plain `dedicated-server`/`dedicated-server-unpatched` packages, you can override them and pass `extraPaths`.
+**IMPORTANT NOTE**: I use `cp -Rs` to recursively link files instead of using `ln -s` on the directories. This is required so that file clobbering works. If you simply symlink the directories it will **NOT** work.
+
+For the `dedicated-server`/`dedicated-server-unpatched` packages, you can override `extraPaths`.
 
 ```nix
 dedicated-server.override ({
@@ -46,7 +48,10 @@ run-wrapper.override ({
 
 During server startup, we create a fake writeable server folder in `/tmp` and symbolically link all the files and directories we need. We link from directories in this order, overlaying any files that collide with the previous step:
 ```
-  Base Server Derivation (+extraPaths derivs)
+  Base Server Derivation
+         |
+         v
+  extraPaths Derivations
          |
          v
 --extra-paths Directories
@@ -56,3 +61,5 @@ During server startup, we create a fake writeable server folder in `/tmp` and sy
 ```
 
 Thus, any file that exists in the data directory will mask the same file within the Nix store's `garrysmod` directory.
+
+NOTE: `garrysmod/data`, `garrysmod/cache` and `steam_cache` are special cases. They are symlinked directly to the data directory's respective directories after the fake directory has been fully clobbered.
