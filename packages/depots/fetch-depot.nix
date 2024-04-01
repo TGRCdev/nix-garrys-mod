@@ -1,4 +1,4 @@
-{ pkgs, lib, depotdownloader }:
+{ stdenvNoCC, lib, depotdownloader }:
 {
   name,
   appId,
@@ -14,7 +14,7 @@
     "manifestId"
     "outputHash"
   ];
-in pkgs.stdenvNoCC.mkDerivation ({
+in stdenvNoCC.mkDerivation ({
   inherit name outputHash;
   outputHashMode = "recursive";
   phases = [ "buildPhase" ];

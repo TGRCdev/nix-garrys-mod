@@ -1,5 +1,7 @@
-{ pkgs, dedicated-server }: ''
-
+{
+    writeShellScriptBin,
+    dedicated-server,
+}: writeShellScriptBin "run-gmod-server" ''
 DATADIR="$PWD"
 EXTRA_PATHS=""
 
@@ -42,10 +44,7 @@ try_if_not_exist_mkdir_and_link_contents() {
 }
 
 deep_link() {
-    oldmask=$(umask)
-    umask 077
     cp --no-preserve=mode,ownership --no-clobber -r -s "$1"/* "$2" 2>/dev/null
-    umask $oldmask
 }
 
 while true; do
@@ -74,8 +73,6 @@ case $1 in
     ;;
 esac
 done
-
-umask 077
 
 echo "State dir: $DATADIR"
 echo "Setting up stateful directories. We will make required directories and, if needed, copy default configuration files."
@@ -112,27 +109,30 @@ FAKEDIR=$(mktemp -d)
 echo "Fake directory at $FAKEDIR. We will trick srcds into believing this is the write-able Garry's Mod dedicated server folder."
 
 mkdir $FAKEDIR/garrysmod
+touch $FAKEDIR/garrysmod/data $FAKEDIR/garrysmod/cache
 
-echo "Linking data directory contents"
+echo "Shadow-linking data directory contents"
 ln -s $DATADIR/steam_cache $FAKEDIR/
-ln -s $DATADIR/addons $DATADIR/cache $DATADIR/data $FAKEDIR/garrysmod/
 deep_link $DATADIR $FAKEDIR/garrysmod
 
-echo "Linking dedicated server contents"
-deep_link ${dedicated-server} $FAKEDIR/
-
 if ! [ -z "$EXTRA_PATHS" ]; then
-    echo "Linking additional paths contents"
+    echo "Shadow-linking additional paths contents"
     for path in $EXTRA_PATHS; do
         printf "\t$path\n"
         if [[ -d "$path/data" ]]; then
             # Anything under `garrysmod/data` is assumed to be persistent. Copy it to stateful (DO NOT OVERWRITE)
-            umask 077
             cp --no-preserve=mode,ownership --no-clobber -r $path/data/* $DATADIR/data 2>/dev/null | true
         fi
         deep_link $path $FAKEDIR/garrysmod
     done
 fi
+
+echo "Shadow-linking dedicated server contents"
+deep_link ${dedicated-server} $FAKEDIR/
+
+echo "Linking 'cache' and 'data' back to the data directory"
+try_command rm $FAKEDIR/garrysmod/cache $FAKEDIR/garrysmod/data
+ln -s $DATADIR/cache $DATADIR/data $FAKEDIR/garrysmod/
 
 echo "Running srcds_run"
 

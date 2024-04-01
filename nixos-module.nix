@@ -1,6 +1,15 @@
-run-wrapper: { lib, pkgs, config, ... }:
+{
+  lib,
+  stdenvNoCC,
+  fetchFromGitHub,
+  writeShellScript
+  config,
+  callPackage,
+}:
 with lib;
 let
+  gpkgs = callPackage ./default.nix;
+  run-wrapper = gpkgs.run-wrapper;
   cfg = config.services.garrys-mod;
   defaultUser = {
     name = "garrys-mod";
@@ -50,7 +59,7 @@ in {
       '';
     };
     map = mkOption {
-      example = "gm_flatgrass";
+      example = "gms_g4p_stargate_v11";
       default = "gm_construct";
       type = types.str;
       description = ''
@@ -68,24 +77,42 @@ in {
     };
     extraPaths = mkOption {
       default = [];
+      example = [
+        (stdenvNoCC.mkDerivation {
+          pname = "gmstranded";
+          version = "19.00.00";
+
+          src = fetchFromGitHub {
+            owner = "TGRCDev";
+            repo = "GMStranded";
+            rev = "b586f62047c9dabcff8317c8fc9b34e5b78caf5c";
+            hash = "sha256-eVzdKaTyM3pgAPNEqYkdAtdqN/QnTXNQYJ98HHCxyxw=";
+          };
+
+          buildPhase = ''
+            mkdir $out
+            cp -r $src/gamemodes $src/maps $src/particles $src/data $out/
+          '';
+        })
+      ];
       type = with types; listOf package;
       description = ''
         A list of derivations whose contents are linked to the fake srcds dir when the
-        server is started. Use this to add additional files (maps, gamemodes, scripts etc.)
+        server is started. Use this to add additional files (maps, gamemodes, scripts, etc.)
         to the server without needing a workshop collection.
       '';
     };
     extraArgs = mkOption {
       example = "+sv_lan 1";
-      default = null;
-      type = with types; nullOr str;
+      default = "";
+      type = with types; str;
       description = ''
         Additional arguments to pass to `srcds_run`.
       '';
     };
     user = mkOption {
       default = "garrys-mod";
-      type = with types; nullOr str;
+      type = with types; str;
       description = ''
         The user account to run the server with.
       '';
@@ -93,7 +120,7 @@ in {
   };
 
   config = mkIf cfg.enable {
-    systemd.services.garrys-mod = builtins.trace cfg {
+    systemd.services.garrys-mod = {
       description = "Garry's Mod dedicated server";
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" ];
@@ -101,14 +128,14 @@ in {
       serviceConfig = {
         Type = "simple";
         User = cfg.user;
-        ExecStart = pkgs.writeShellScript "gmod-exec-start" ''
+        ExecStart = writeShellScript "gmod-exec-start" ''
           ${run-wrapper}/bin/run-gmod-server --data-dir "${cfg.dataDir}" --extra-paths "${lib.strings.concatStringsSep " " cfg.extraPaths}" -- \
           -port ${builtins.toString cfg.port} \
           ${ if cfg.address != null then "-ip ${cfg.address} " else "" } \
           +gamemode ${cfg.gamemode} \
-          +map ${builtins.trace cfg.map cfg.map} \
+          +map ${cfg.map} \
           ${ if cfg.workshopCollection != null then "+host_workshop_collection ${builtins.toString cfg.workshopCollection}" else ""} \
-          ${ if cfg.extraArgs != null then cfg.extraArgs else "" }
+          ${cfg.extraArgs}
         '';
       };
     };

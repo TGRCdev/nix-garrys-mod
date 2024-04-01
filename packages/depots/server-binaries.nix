@@ -1,13 +1,14 @@
 # Fixup and patch binaries to work without steam-run
 {
-  pkgs,
   pkgsi686Linux,
   stdenvNoCC,
   steamPackages,
   fetchDepot,
-}: stdenvNoCC.mkDerivation {
+  server-binaries-unpatched,
+}:
+stdenvNoCC.mkDerivation {
   name = "garrys-mod-dedicated-server-linux-bins";
-  src = pkgs.callPackage ./server-binaries-unpatched.nix { inherit fetchDepot; };
+  src = server-binaries-unpatched;
 
   buildInputs = [
     steamPackages.steam-runtime
@@ -18,8 +19,6 @@
 
   buildPhase = ''
     cp -r $src $out
-
-    # This one file has costed me a month and a half of debugging
     chmod +w $out
     echo 4000 > $out/steam_appid.txt
   '';
