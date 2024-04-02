@@ -46,6 +46,11 @@ in {
         The port to bind the Garry's Mod server to.
       '';
     };
+    openFirewall = mkOption {
+      default = true;
+      type = types.bool;
+      description = "Opens the given `port` in the firewall.";
+    };
     gamemode = mkOption {
       example = "terrortown";
       default = "sandbox";
@@ -142,6 +147,9 @@ in {
     users = mkIf (cfg.user == defaultUser.name) {
       users.garrys-mod = defaultUser;
       groups.garrys-mod = {};
+    };
+    networking.firewall = mkIf cfg.openFirewall {
+      allowedUDPPorts = [ cfg.port ];
     };
   };
 }
