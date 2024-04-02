@@ -118,8 +118,8 @@ in {
 
   config = mkIf cfg.enable {
     systemd.services.garrys-mod = let
-      serverPkg = gpkgs.dedicated-server.override { inherit (cfg) extraPaths; };
-      runWrapper = gpkgs.run-wrapper.override { dedicated-server = serverPkg; };
+      serverPkg = gpkgs.dedicated-server-unwrapped.override { inherit (cfg) extraPaths; };
+      runWrapper = gpkgs.dedicated-server.override { dedicated-server-unwrapped = serverPkg; };
     in {
       description = "Garry's Mod dedicated server";
       wantedBy = [ "multi-user.target" ];

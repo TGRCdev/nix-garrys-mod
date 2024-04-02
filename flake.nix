@@ -2,7 +2,6 @@
   outputs = { self, nixpkgs }: let
     system = "x86_64-linux";
     pkgs = import nixpkgs { inherit system; };
-    stdenv = pkgs.stdenvNoCC;
   in rec {
     nixosModules.default = import ./nixos-module.nix;
     packages.${system} = pkgs.callPackage ./default.nix {};
