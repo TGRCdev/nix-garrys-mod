@@ -14,7 +14,7 @@
   } // defaultArgs;
   consoleArgStr = with lib; strings.concatStringsSep " " (
     attrsets.mapAttrsToList (
-        arg: val: "+${arg} ${builtins.toString val}"
+        arg: val: "+${arg} ${strings.escapeShellArg (toString val)}"
     ) args.consoleArgs
   );
   warnNoBwrap = val: (lib.warn "`useBubblewrap=false` is intended for testing and debug purposes only." val);
