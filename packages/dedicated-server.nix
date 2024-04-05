@@ -12,7 +12,11 @@
     extraPaths = [];
     consoleArgs = {};
   } // defaultArgs;
-  consoleArgStr = lib.strings.concatStringsSep " " (lib.attrsets.mapAttrsToList (arg: val: "+${arg} ${builtins.toString val}") args.consoleArgs);
+  consoleArgStr = with lib; strings.concatStringsSep " " (
+    attrsets.mapAttrsToList (
+        arg: val: "+${arg} ${builtins.toString val}"
+    ) args.consoleArgs
+  );
   warnNoBwrap = val: (lib.warn "`useBubblewrap=false` is intended for testing and debug purposes only." val);
 in writeShellScriptBin "run-gmod-server" ''
 DATADIR="${args.dataDir}"

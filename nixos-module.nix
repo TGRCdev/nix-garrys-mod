@@ -92,8 +92,8 @@ in {
           };
 
           buildPhase = ''
-            mkdir $out
-            cp -Rs $src/gamemodes $src/particles $src/data $out/
+            mkdir -p $out/garrysmod
+            cp -Rs $src/gamemodes $src/particles $src/data $out/garrysmod
           '';
         })
       ];
@@ -105,9 +105,12 @@ in {
       '';
     };
     extraArgs = mkOption {
-      example = "+sv_lan 1";
-      default = "";
-      type = with types; str;
+      example = {
+        sv_lan = 1;
+        hostname = "My Server";
+      };
+      default = {};
+      type = with types; attrs;
       description = ''
         Additional arguments to pass to `srcds_run`.
       '';
@@ -119,12 +122,30 @@ in {
         The user account to run the server with.
       '';
     };
+    umask = mkOption {
+      default = "u=rwx";
+      example = "u=rwx,g=r";
+      type = with types; either str int;
+      description = ''
+        The `umask` value to run the server with.
+      '';
+    };
   };
 
   config = mkIf cfg.enable {
     systemd.services.garrys-mod = let
       serverPkg = gpkgs.dedicated-server-unwrapped.override { inherit (cfg) extraPaths; };
-      runWrapper = gpkgs.dedicated-server.override { dedicated-server-unwrapped = serverPkg; };
+      runWrapper = gpkgs.dedicated-server.override {
+        dedicated-server-unwrapped = serverPkg;
+        defaultArgs = {
+          inherit (cfg) dataDir;
+          consoleArgs = {
+            inherit (cfg) port gamemode map;
+          } // cfg.extraArgs
+          // (if cfg.address != null then { ip = cfg.address; } else {})
+          // (if cfg.workshopCollection != null then { host_workshop_collection = cfg.workshopCollection; } else {});
+        };
+      };
     in {
       description = "Garry's Mod dedicated server";
       wantedBy = [ "multi-user.target" ];
@@ -133,15 +154,8 @@ in {
       serviceConfig = {
         Type = "simple";
         User = cfg.user;
-        ExecStart = pkgs.writeShellScript "gmod-exec-start" ''
-          ${runWrapper}/bin/run-gmod-server --data-dir "${cfg.dataDir}" -- \
-          -port ${builtins.toString cfg.port} \
-          ${ if cfg.address != null then "-ip ${cfg.address} " else "" } \
-          +gamemode ${cfg.gamemode} \
-          +map ${cfg.map} \
-          ${ if cfg.workshopCollection != null then "+host_workshop_collection ${builtins.toString cfg.workshopCollection}" else ""} \
-          ${cfg.extraArgs}
-        '';
+        ExecStart = "${runWrapper}/bin/run-gmod-server";
+        UMask = cfg.umask;
       };
     };
     users = mkIf (cfg.user == defaultUser.name) {
