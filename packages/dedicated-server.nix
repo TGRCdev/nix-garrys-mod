@@ -190,12 +190,15 @@ ${ if useBubblewrap then ''
         --ro-bind /etc/ssl /etc/ssl \
         --ro-bind /etc/static/ssl /etc/static/ssl \
         --ro-bind /etc/resolv.conf /etc/resolv.conf \
+        --tmpfs /tmp \
+        --dev /dev \
+        --dev-bind /dev/urandom /dev/urandom \
+        --dev-bind /dev/tty /dev/tty \
         --bind $FAKEDIR $FAKEDIR \
         --ro-bind $DATADIR $DATADIR \
-        --dev-bind /dev/urandom /dev/urandom \
-        --bind $DATADIR/data $DATADIR/data \
         --bind $DATADIR/cache $DATADIR/cache \
         --bind $DATADIR/steam_cache $DATADIR/steam_cache \
+        --bind $DATADIR/data $DATADIR/data \
         $FAKEDIR/srcds_run ${consoleArgStr} "$@"
 '' else ''
     $FAKEDIR/srcds_run ${consoleArgStr} "$@"
