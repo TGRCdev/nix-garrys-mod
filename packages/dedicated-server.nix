@@ -106,6 +106,7 @@ try_if_not_exist_mkdir resource/localization
 try_if_not_exist_mkdir addons
 try_if_not_exist_mkdir cache
 try_if_not_exist_mkdir steam_cache
+try_if_not_exist_mkdir logs
 
 try_if_not_exist_mkdir cfg
 echo "Checking for missing configurations"
@@ -123,7 +124,7 @@ FAKEDIR=$(mktemp -d)
 echo "Fake directory at $FAKEDIR. We will trick srcds into believing this is the write-able Garry's Mod dedicated server folder."
 
 mkdir $FAKEDIR/garrysmod
-touch $FAKEDIR/garrysmod/data $FAKEDIR/garrysmod/cache $FAKEDIR/steam_cache
+touch $FAKEDIR/garrysmod/data $FAKEDIR/garrysmod/cache $FAKEDIR/steam_cache $FAKEDIR/logs
 
 echo "Shadow-linking base server package contents"
 cp -rs --no-preserve=ownership,mode ${dedicated-server-unwrapped}/* $FAKEDIR/ 2>/dev/null
@@ -145,9 +146,11 @@ echo "Clobbering with stateful directory"
 cp -rfs --no-preserve=ownership,mode $DATADIR/* $FAKEDIR/garrysmod 2>/dev/null
 
 echo "Linking 'steam_cache', 'cache' and 'data' back to the stateful directory"
-rm $FAKEDIR/garrysmod/cache $FAKEDIR/garrysmod/data $FAKEDIR/steam_cache
-ln -s $DATADIR/cache $DATADIR/data $FAKEDIR/garrysmod/
+rm $FAKEDIR/garrysmod/cache $FAKEDIR/garrysmod/data $FAKEDIR/steam_cache $FAKEDIR/logs
+ln -s $DATADIR/cache $DATADIR/data $DATADIR/logs $FAKEDIR/garrysmod/
 ln -s $DATADIR/steam_cache $FAKEDIR/
+touch $DATADIR/logs/console.log
+ln -s $FAKEDIR/console.log $DATADIR/logs/console.log
 
 echo "Running srcds_run ${if useBubblewrap then "with" else warnNoBwrap "WITHOUT"} bwrap";
 
@@ -199,6 +202,7 @@ ${ if useBubblewrap then ''
         --bind $DATADIR/cache $DATADIR/cache \
         --bind $DATADIR/steam_cache $DATADIR/steam_cache \
         --bind $DATADIR/data $DATADIR/data \
+        --bind $DATADIR/logs $DATADIR/logs \
         $FAKEDIR/srcds_run ${consoleArgStr} "$@"
 '' else ''
     $FAKEDIR/srcds_run ${consoleArgStr} "$@"
