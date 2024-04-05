@@ -47,7 +47,7 @@ in {
       '';
     };
     openFirewall = mkOption {
-      default = true;
+      default = false;
       type = types.bool;
       description = "Opens the given `port` in the firewall.";
     };
