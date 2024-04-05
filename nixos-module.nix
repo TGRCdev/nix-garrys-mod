@@ -123,9 +123,9 @@ in {
       '';
     };
     umask = mkOption {
-      default = "u=rwx";
-      example = "u=rwx,g=r";
-      type = with types; either str int;
+      default = "077";
+      example = "007";
+      type = with types; str;
       description = ''
         The `umask` value to run the server with.
       '';
