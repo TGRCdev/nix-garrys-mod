@@ -87,13 +87,13 @@ in {
           src = fetchFromGitHub {
             owner = "TGRCDev";
             repo = "GMStranded";
-            rev = "b586f62047c9dabcff8317c8fc9b34e5b78caf5c";
-            hash = "sha256-eVzdKaTyM3pgAPNEqYkdAtdqN/QnTXNQYJ98HHCxyxw=";
+            rev = "4bc8f7cf88be1c6965282167f6151e754651777d";
+            hash = "sha256-6eRWMU75SpgZgYu6bzOSDP0cs879dPgNR8pWqpcGr4A=";
           };
 
           buildPhase = ''
             mkdir $out
-            cp -r $src/gamemodes $src/maps $src/particles $src/data $out/
+            cp -Rs $src/gamemodes $src/particles $src/data $out/
           '';
         })
       ];
