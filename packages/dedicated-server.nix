@@ -1,12 +1,26 @@
 {
+    lib,
     writeShellScriptBin,
     dedicated-server-unwrapped,
     bubblewrap,
     useBubblewrap ? true,
-    bwrapNewSession ? true,
-}: writeShellScriptBin "run-gmod-server" ''
-DATADIR="$PWD"
-EXTRA_PATHS=""
+    bwrapNewSession ? false,
+    defaultArgs ? {},
+}: let
+  args = {
+    dataDir = "$PWD";
+    extraPaths = [];
+    consoleArgs = {};
+  } // defaultArgs;
+  consoleArgStr = with lib; strings.concatStringsSep " " (
+    attrsets.mapAttrsToList (
+        arg: val: "+${arg} ${strings.escapeShellArg (toString val)}"
+    ) args.consoleArgs
+  );
+  warnNoBwrap = val: (lib.warn "`useBubblewrap=false` is intended for testing and debug purposes only." val);
+in writeShellScriptBin "run-gmod-server" ''
+DATADIR="${args.dataDir}"
+EXTRA_PATHS="${lib.strings.concatStringsSep " " args.extraPaths}"
 
 printUsage() {
 echo "Usage: $0 -d /path/to/garrysmod-server-data -- <srcds_run args>"
@@ -47,30 +61,32 @@ try_if_not_exist_mkdir_and_link_contents() {
 }
 
 while true; do
-case $1 in
-    -h | --help)
-        printUsage
-        shift
-    ;;
-    -d | --data-dir)
-        DATADIR=$(realpath "$2")
-        shift 2
-    ;;
-    -e | --extra-paths)
-        EXTRA_PATHS=$2
-        shift 2
-        break;
-    ;;
-    --)
-        shift
-        break;
-    ;;
-    *)
-        if [ -z "$1" ]; then shift; break; fi
-        echo "Unknown argument \"$1\""
-        printUsage
-    ;;
-esac
+    case $1 in
+        -h | --help)
+            printUsage
+        ;;
+        -d | --data-dir)
+            DATADIR=$(realpath "$2")
+            shift 2
+        ;;
+        -e | --extra-paths)
+            EXTRA_PATHS=$2
+            shift 2
+        ;;
+        --unsafe)
+            UNSAFE=1
+            shift
+        ;;
+        --)
+            shift
+            break;
+        ;;
+        *)
+            if [ -z "$1" ]; then shift; break; fi
+            echo "Unknown argument \"$1\""
+            printUsage
+        ;;
+    esac
 done
 
 echo "State dir: $DATADIR"
@@ -90,6 +106,7 @@ try_if_not_exist_mkdir resource/localization
 try_if_not_exist_mkdir addons
 try_if_not_exist_mkdir cache
 try_if_not_exist_mkdir steam_cache
+try_if_not_exist_mkdir logs
 
 try_if_not_exist_mkdir cfg
 echo "Checking for missing configurations"
@@ -107,7 +124,7 @@ FAKEDIR=$(mktemp -d)
 echo "Fake directory at $FAKEDIR. We will trick srcds into believing this is the write-able Garry's Mod dedicated server folder."
 
 mkdir $FAKEDIR/garrysmod
-touch $FAKEDIR/garrysmod/data $FAKEDIR/garrysmod/cache $FAKEDIR/steam_cache
+touch $FAKEDIR/garrysmod/data $FAKEDIR/garrysmod/cache $FAKEDIR/steam_cache $FAKEDIR/logs
 
 echo "Shadow-linking base server package contents"
 cp -rs --no-preserve=ownership,mode ${dedicated-server-unwrapped}/* $FAKEDIR/ 2>/dev/null
@@ -129,11 +146,44 @@ echo "Clobbering with stateful directory"
 cp -rfs --no-preserve=ownership,mode $DATADIR/* $FAKEDIR/garrysmod 2>/dev/null
 
 echo "Linking 'steam_cache', 'cache' and 'data' back to the stateful directory"
-rm $FAKEDIR/garrysmod/cache $FAKEDIR/garrysmod/data $FAKEDIR/steam_cache
-ln -s $DATADIR/cache $DATADIR/data $FAKEDIR/garrysmod/
+rm $FAKEDIR/garrysmod/cache $FAKEDIR/garrysmod/data $FAKEDIR/steam_cache $FAKEDIR/logs
+ln -s $DATADIR/cache $DATADIR/data $DATADIR/logs $FAKEDIR/garrysmod/
 ln -s $DATADIR/steam_cache $FAKEDIR/
+touch $DATADIR/logs/console.log
+ln -s $FAKEDIR/console.log $DATADIR/logs/console.log
 
-echo "Running srcds_run ${if useBubblewrap then "with bwrap" else ""}";
+echo "Running srcds_run ${if useBubblewrap then "with" else warnNoBwrap "WITHOUT"} bwrap";
+
+${ if useBubblewrap && !bwrapNewSession then ''
+# System check to make sure we can safely bwrap
+# and avoid CVE-2017-5226
+# https://github.com/containers/bubblewrap/issues/142
+warn_vulnerable() {
+    echo "ERROR: Unsafe bwrap usage."
+    echo "Bubblewrap suffers from a vulnerability that could result in sandboxed programs escaping the sandbox."
+    echo "See: https://github.com/containers/bubblewrap/issues/142"
+    echo "To dismiss this message and continue running, perform one of these actions:"
+    echo "    - Run \"sysctl $1\" to prevent unauthorized TIOCSTI usage during this boot"
+    echo "    - Add \"$1\" to your boot arguments to prevent unauthorized TIOCSTI usage permanently"
+    echo "    - Override \"bwrapNewSession = true\" in the \"garrys-mod.dedicated-server\" package. (May cause terminals to act funny)"
+    echo "    - Pass \"--unsafe\" to this run script (NOT RECOMMENDED)"
+    exit 1
+}
+if [ -z "$UNSAFE" ]; then
+    if [ -f "/proc/sys/dev/tty/tiocsti_restrict" ]; then
+        if [ "$(cat /proc/sys/dev/tty/tiocsti_restrict)" -ne 1 ]; then
+            warn_vulnerable "dev.tty.tiocsti_restrict=1"
+        fi
+    elif [ -f "/proc/sys/dev/tty/legacy_tiocsti" ]; then
+        if [ "$(cat /proc/sys/dev/tty/legacy_tiocsti)" -ne 0 ]; then
+            warn_vulnerable "dev.tty.legacy_tiocsti=0"
+        fi
+    fi
+else
+    echo "WARN: Running with \"--unsafe\". Your system may be vulnerable to CVE-2017-5226. Caveat emptor."
+fi
+''
+else ""}
 
 ${ if useBubblewrap then ''
     ${bubblewrap}/bin/bwrap ${if bwrapNewSession then "--new-session" else ""} \
@@ -143,17 +193,19 @@ ${ if useBubblewrap then ''
         --ro-bind /etc/ssl /etc/ssl \
         --ro-bind /etc/static/ssl /etc/static/ssl \
         --ro-bind /etc/resolv.conf /etc/resolv.conf \
+        --tmpfs /tmp \
+        --dev /dev \
+        --dev-bind /dev/urandom /dev/urandom \
+        --dev-bind /dev/tty /dev/tty \
         --bind $FAKEDIR $FAKEDIR \
         --ro-bind $DATADIR $DATADIR \
-        --dev-bind /dev/urandom /dev/urandom \
-        --bind $DATADIR/data $DATADIR/data \
         --bind $DATADIR/cache $DATADIR/cache \
         --bind $DATADIR/steam_cache $DATADIR/steam_cache \
-        $FAKEDIR/srcds_run "$@"
+        --bind $DATADIR/data $DATADIR/data \
+        --bind $DATADIR/logs $DATADIR/logs \
+        $FAKEDIR/srcds_run ${consoleArgStr} "$@"
 '' else ''
-    $FAKEDIR/srcds_run "$@"
+    $FAKEDIR/srcds_run ${consoleArgStr} "$@"
 ''
 }
-
-
 ''

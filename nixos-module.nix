@@ -46,6 +46,11 @@ in {
         The port to bind the Garry's Mod server to.
       '';
     };
+    openFirewall = mkOption {
+      default = false;
+      type = types.bool;
+      description = "Opens the given `port` in the firewall.";
+    };
     gamemode = mkOption {
       example = "terrortown";
       default = "sandbox";
@@ -82,13 +87,13 @@ in {
           src = fetchFromGitHub {
             owner = "TGRCDev";
             repo = "GMStranded";
-            rev = "b586f62047c9dabcff8317c8fc9b34e5b78caf5c";
-            hash = "sha256-eVzdKaTyM3pgAPNEqYkdAtdqN/QnTXNQYJ98HHCxyxw=";
+            rev = "4bc8f7cf88be1c6965282167f6151e754651777d";
+            hash = "sha256-6eRWMU75SpgZgYu6bzOSDP0cs879dPgNR8pWqpcGr4A=";
           };
 
           buildPhase = ''
-            mkdir $out
-            cp -r $src/gamemodes $src/maps $src/particles $src/data $out/
+            mkdir -p $out/garrysmod
+            cp -Rs $src/gamemodes $src/particles $src/data $out/garrysmod
           '';
         })
       ];
@@ -100,9 +105,12 @@ in {
       '';
     };
     extraArgs = mkOption {
-      example = "+sv_lan 1";
-      default = "";
-      type = with types; str;
+      example = {
+        sv_lan = 1;
+        hostname = "My Server";
+      };
+      default = {};
+      type = with types; attrs;
       description = ''
         Additional arguments to pass to `srcds_run`.
       '';
@@ -114,12 +122,30 @@ in {
         The user account to run the server with.
       '';
     };
+    umask = mkOption {
+      default = "077";
+      example = "007";
+      type = with types; str;
+      description = ''
+        The `umask` value to run the server with.
+      '';
+    };
   };
 
   config = mkIf cfg.enable {
     systemd.services.garrys-mod = let
       serverPkg = gpkgs.dedicated-server-unwrapped.override { inherit (cfg) extraPaths; };
-      runWrapper = gpkgs.dedicated-server.override { dedicated-server-unwrapped = serverPkg; };
+      runWrapper = gpkgs.dedicated-server.override {
+        dedicated-server-unwrapped = serverPkg;
+        defaultArgs = {
+          inherit (cfg) dataDir;
+          consoleArgs = {
+            inherit (cfg) port gamemode map;
+          } // cfg.extraArgs
+          // (if cfg.address != null then { ip = cfg.address; } else {})
+          // (if cfg.workshopCollection != null then { host_workshop_collection = cfg.workshopCollection; } else {});
+        };
+      };
     in {
       description = "Garry's Mod dedicated server";
       wantedBy = [ "multi-user.target" ];
@@ -128,20 +154,16 @@ in {
       serviceConfig = {
         Type = "simple";
         User = cfg.user;
-        ExecStart = pkgs.writeShellScript "gmod-exec-start" ''
-          ${runWrapper}/bin/run-gmod-server --data-dir "${cfg.dataDir}" -- \
-          -port ${builtins.toString cfg.port} \
-          ${ if cfg.address != null then "-ip ${cfg.address} " else "" } \
-          +gamemode ${cfg.gamemode} \
-          +map ${cfg.map} \
-          ${ if cfg.workshopCollection != null then "+host_workshop_collection ${builtins.toString cfg.workshopCollection}" else ""} \
-          ${cfg.extraArgs}
-        '';
+        ExecStart = "${runWrapper}/bin/run-gmod-server";
+        UMask = cfg.umask;
       };
     };
     users = mkIf (cfg.user == defaultUser.name) {
       users.garrys-mod = defaultUser;
       groups.garrys-mod = {};
+    };
+    networking.firewall = mkIf cfg.openFirewall {
+      allowedUDPPorts = [ cfg.port ];
     };
   };
 }

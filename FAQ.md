@@ -2,43 +2,45 @@
 
 ## Can I add custom files to the server derivation?
 
-Yes! For the NixOS module, you can include additional derivations in `services.garrys-mod.extraPaths`, and they will be merged with the `dedicated-server` derivation using `pkgs.buildEnv`. Here is an example of what I use to run [my gamemode](https://github.com/TGRCDev/GMStranded.git).
+Yes! For the NixOS module, you can include additional derivations in `services.garrys-mod.extraPaths`, and they will be merged with the base server derivation. Here is an example of what I use to run [my gamemode](https://github.com/TGRCDev/GMStranded.git).
 ```nix
-services.garrys-mod = {
-  enable = true;
-  gamemode = "gmstranded";
-  map = "gms_g4p_stargate_v11";
-  workshopCollection = 3035416339;
-  extraPaths = let
-    gmstranded = pkgs.fetchFromGitHub {
-        owner = "TGRCDev";
-        repo = "GMStranded";
-        rev = "4bc8f7cf88be1c6965282167f6151e754651777d";
-        hash = "sha256-6eRWMU75SpgZgYu6bzOSDP0cs879dPgNR8pWqpcGr4A=";
+{
+  services.garrys-mod = let
+    gmstranded-src = pkgs.fetchFromGitHub {
+      owner = "TGRCDev";
+      repo = "GMStranded";
+      rev = "4bc8f7cf88be1c6965282167f6151e754651777d";
+      hash = "sha256-6eRWMU75SpgZgYu6bzOSDP0cs879dPgNR8pWqpcGr4A=";
     };
-  in [ # It's a little out of order, so I have to symlink a bit
-    (pkgs.runCommandLocal "gmstranded" { inherit gmstranded; } ''
+    # Modify the derivation to correctly link into the srcds directory
+    gmstranded = pkgs.runCommandLocal "gmstranded" { src = gmstranded-src; } ''
       mkdir -p $out/garrysmod
-      cp -Rs $gmstranded/data $gmstranded/gamemodes $gmstranded/particles $out/garrysmod
-    '')
-  ];
-};
+      cp -Rs $src/data $src/gamemodes $src/particles $out/garrysmod
+    '';
+  in {
+    enable = true;
+    gamemode = "gmstranded";
+    map = "gms_g4p_stargate_v11";
+    workshopCollection = 3035416339;
+    extraPaths = [ gmstranded ];
+  };
+}
 ```
 
 **IMPORTANT NOTE**: I use `cp -Rs` to recursively link files instead of using `ln -s` on the directories. This is required so that file clobbering works. If you simply symlink the directories it will **NOT** work.
 
-For the `dedicated-server`/`dedicated-server-unpatched` packages, you can override `extraPaths`.
+For the `dedicated-server-unwrapped`/`dedicated-server-unwrapped-unpatched` packages, you can override `extraPaths`.
 
 ```nix
-dedicated-server.override ({
+dedicated-server-unwrapped.override ({
     extraPaths = [ ... ];
 })
 ```
 
-For the `run-wrapper`, override `dedicated-server`.
+For the `dedicated-server` run wrapper, override `dedicated-server-unwrapped`.
 ```nix
-run-wrapper.override ({
-    dedicated-server = dedicated-server.override ({
+dedicated-server.override ({
+    dedicated-server-unwrapped = dedicated-server-unwrapped.override ({
         extraPaths = [ ... ];
     });
 })
