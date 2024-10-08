@@ -4,7 +4,7 @@ fetchDepot {
   name = "garrys-mod-dedicated-server-content";
   appId = 4020;
   depotId = 4021;
-  manifestId = 5179858603377479094;
-  outputHash = "sha256-rUiQ+xwaw+meBTVFwBFY8ZjOCOOvvdI0vjX9p2ZgsSs=";
+  manifestId = 1458285547022159422;
+  outputHash = "sha256-xvyZdFZftv+ydUtaKriTmr0r8e2kmUvdP49Q02xROTo=";
   meta.license = lib.licenses.unfree;
 }
