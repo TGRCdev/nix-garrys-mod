@@ -2,7 +2,7 @@
 {
   pkgsi686Linux,
   stdenvNoCC,
-  steamPackages,
+  steam-runtime,
   fetchDepot,
   server-binaries-unpatched,
 }:
@@ -11,7 +11,7 @@ stdenvNoCC.mkDerivation {
   src = server-binaries-unpatched;
 
   buildInputs = [
-    steamPackages.steam-runtime
+    steam-runtime
   ];
   nativeBuildInputs = [
     pkgsi686Linux.autoPatchelfHook
@@ -26,8 +26,8 @@ stdenvNoCC.mkDerivation {
   preFixupPhases = [ "autoPatchelfPathsPhase" ];
   # Find dependencies from the runtime and link them
   autoPatchelfPathsPhase = ''
-    addAutoPatchelfSearchPath ${steamPackages.steam-runtime}/usr/lib/i386-linux-gnu/
-    addAutoPatchelfSearchPath ${steamPackages.steam-runtime}/lib/i386-linux-gnu/
+    addAutoPatchelfSearchPath ${steam-runtime}/usr/lib/i386-linux-gnu/
+    addAutoPatchelfSearchPath ${steam-runtime}/lib/i386-linux-gnu/
     addAutoPatchelfSearchPath $out/bin
   '';
   # AFAIK these aren't needed for the headless server

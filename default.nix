@@ -6,6 +6,12 @@
     # Fetcher for Steam game depots
     fetchDepot = callPackage ./packages/depots/fetch-depot.nix {};
 
+    # Fetcher for Steam runtimes
+    fetchRuntime = callPackage ./packages/depots/fetch-runtime.nix {};
+
+    # Steam runtime shared libraries
+    steam-runtime = callPackage ./packages/depots/steam-runtime.nix {};
+
     # steamclient.so
     steam-sdk-redist = callPackage ./packages/depots/steam-sdk-redist.nix {};
 
