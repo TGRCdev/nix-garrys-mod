@@ -29,7 +29,8 @@ in stdenvNoCC.mkDerivation ({
       -depot ${builtins.toString depotId} \
       -manifest ${builtins.toString manifestId} \
       -os linux \
-      -osarch 32
+      -osarch 32 \
+      -debug
     cp -r ./depot/* $out/
   '';
 } // rest)
