@@ -4,7 +4,7 @@ fetchDepot {
   name = "garrys-mod-dedicated-server-linux-bins-unpatched";
   appId = 4020;
   depotId = 4023;
-  manifestId = 6222789010703016116;
-  outputHash = "sha256-FbJX5yThqV59ufIB6MVhvVovcg+uw2V5fW5yShnuUdg=";
+  manifestId = 2498902166196267651;
+  outputHash = "sha256-6FZQ3SgEPqc5GINo40g6iNRNoySd/McfgrU1Qldl5eg=";
   meta.license = lib.licenses.unfree;
 }
