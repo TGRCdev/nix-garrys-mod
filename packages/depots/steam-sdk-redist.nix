@@ -4,7 +4,7 @@ fetchDepot {
   name = "steam-sdk-redist";
   appId = 4020;
   depotId = 1006;
-  manifestId = 7138471031118904166;
-  outputHash = "sha256-OtPI1kAx6+9G09IEr2kYchyvxlPl3rzx/ai/xEVG4oM=";
+  manifestId = 5587033981095108078;
+  outputHash = "sha256-CjrVpq5ztL6wTWIa63a/4xHM35DzgDR/O6qVf1YV5xw=";
   meta.license = lib.licenses.unfreeRedistributable;
 }
